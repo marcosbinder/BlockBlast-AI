@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.class
+*.pytest_cache/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Temporary test captures and debug artifacts
+*.png
+*.jpg
+*.jpeg
+slot2_crop.png
+live_full.png
+mathr81_control.py
+
+# Checkpoint partial snapshots (keep best_champion.pkl and training_history.csv)
+checkpoints/neat-checkpoint-*
+
+# Logs and system artifacts
+*.log
+.agents/
+.idea/
+.vscode/

@@ -143,17 +143,18 @@ def _fast_simulate_placement(
         if pc > 0 and board[pr][pc - 1] != 0: contacts += 1
         if pc < 7 and board[pr][pc + 1] != 0: contacts += 1
 
-    # 3. Fast line clearing
-    rows_to_clear = [row_idx for row_idx in range(8) if all(new_board[row_idx][col_idx] != 0 for col_idx in range(8))]
-    cols_to_clear = [col_idx for col_idx in range(8) if all(new_board[row_idx][col_idx] != 0 for row_idx in range(8))]
+    # 3. Fast line clearing (apenas nas linhas e colunas que a peça afetou)
+    r_check = range(r, min(8, r + piece.height))
+    c_check = range(c, min(8, c + piece.width))
+    rows_to_clear = [ri for ri in r_check if sum(new_board[ri]) == 8]
+    cols_to_clear = [ci for ci in c_check if sum(new_board[ri][ci] for ri in range(8)) == 8]
     cleared = len(rows_to_clear) + len(cols_to_clear)
 
-    for row_idx in rows_to_clear:
-        for col_idx in range(8):
-            new_board[row_idx][col_idx] = 0
-    for col_idx in cols_to_clear:
-        for row_idx in range(8):
-            new_board[row_idx][col_idx] = 0
+    for ri in rows_to_clear:
+        new_board[ri] = [0] * 8
+    for ci in cols_to_clear:
+        for ri in range(8):
+            new_board[ri][ci] = 0
 
     points = piece.size
     if cleared > 0:

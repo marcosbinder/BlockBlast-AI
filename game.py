@@ -430,6 +430,31 @@ class BlockBlast:
         fit_ratio = min(1.0, contacts / max_contacts)
         step_fitness += fit_ratio * 3.0
 
+        # ========== EQUILÍBRIO ANTI-BURACOS E PRESERVAÇÃO DO CENTRO 3x3 ==========
+        # Penalidade moderada por buracos mortais e bônus por manter o centro limpo para peças 3x3
+        # Calibrado com valores suaves (+/- 2 a 3) para priorizar jogadas organizadas SEM inibir combos (+50/+100)
+        holes_created = 0
+        center_occupied = 0
+        for br in range(8):
+            for bc in range(8):
+                if self.board[br][bc] == 0:
+                    nb = 0
+                    if br > 0 and self.board[br - 1][bc] != 0: nb += 1
+                    if br < 7 and self.board[br + 1][bc] != 0: nb += 1
+                    if bc > 0 and self.board[br][bc - 1] != 0: nb += 1
+                    if bc < 7 and self.board[br][bc + 1] != 0: nb += 1
+                    if nb >= 3:
+                        holes_created += 1
+                elif 2 <= br <= 5 and 2 <= bc <= 5:
+                    center_occupied += 1
+
+        # Penalidade suave por buracos isolados (-2 por buraco, teto em -12 para não ter medo de arriscar combos)
+        step_fitness -= min(12.0, holes_created * 2.0)
+
+        # Reforço de preservação do centro livre para peças 3x3 (até +3.0)
+        center_openness = (16 - center_occupied) / 16.0
+        step_fitness += center_openness * 3.0
+
         if cleared_lines > 0:
             self.combo_streak += 1
             self.turns_without_clear = 0

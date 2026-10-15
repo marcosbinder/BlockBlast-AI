@@ -110,12 +110,9 @@ flowchart TD
 
 ## 🎬 Demonstração Visual
 
-| Bot Autônomo Jogando no Celular | Dashboard Interativo de Telemetria Pygame |
-|:---:|:---:|
-| ![Demonstração no Celular](assets/demo_mobile_bot.gif) | ![Dashboard de Treinamento NEAT](assets/demo_dashboard.gif) |
-| *Execução em malha fechada em tempo real no Motorola Moto G54 5G* | *Evolução genética paralela multi-core e métricas ao vivo* |
-
-> *Insira suas gravações de tela do celular e do dashboard na pasta `assets/`.*
+<p align="center">
+  <img src="assets/demo.gif" alt="BlockBlast AI Champion Gameplay" width="700" />
+</p>
 
 ---
 

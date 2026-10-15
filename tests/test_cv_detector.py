@@ -22,6 +22,7 @@ from cv_detector import BlockBlastDetector
 from game import BLOCK_SHAPES
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
 ALL_18_SCREENSHOTS = [
     "after_blue_test.png",
@@ -54,7 +55,9 @@ def detector() -> BlockBlastDetector:
 def loaded_images() -> dict:
     images = {}
     for name in ALL_18_SCREENSHOTS:
-        path = os.path.join(REPO_ROOT, name)
+        path = os.path.join(FIXTURES_DIR, name)
+        if not os.path.exists(path):
+            path = os.path.join(REPO_ROOT, name)
         assert os.path.exists(path), f"Required repository test image missing: {path}"
         img = cv2.imread(path)
         assert img is not None, f"Failed to load image: {path}"

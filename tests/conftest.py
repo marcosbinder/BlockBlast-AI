@@ -35,24 +35,35 @@ CONFIG_PATH = os.path.join(WORKSPACE_DIR, "config-feedforward")
 # REPOSITORY SAMPLE IMAGE FIXTURES
 # =====================================================================
 
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
 @pytest.fixture(scope="session")
 def workspace_root() -> str:
     return WORKSPACE_DIR
 
 
 @pytest.fixture(scope="session")
+def fixtures_dir() -> str:
+    return FIXTURES_DIR
+
+
+@pytest.fixture(scope="session")
 def repo_png_files(workspace_root: str) -> List[str]:
-    """Finds all PNG screenshots available in the workspace."""
-    pngs = [f for f in os.listdir(workspace_root) if f.lower().endswith(".png")]
+    """Finds all PNG screenshots available in tests/fixtures or the workspace."""
+    search_dir = FIXTURES_DIR if os.path.exists(FIXTURES_DIR) else workspace_root
+    pngs = [f for f in os.listdir(search_dir) if f.lower().endswith(".png")]
     return sorted(pngs)
 
 
 @pytest.fixture(scope="session")
 def sample_images(workspace_root: str, repo_png_files: List[str]) -> Dict[str, np.ndarray]:
-    """Loads all repository sample PNGs as BGR numpy arrays."""
+    """Loads all repository sample PNGs as BGR numpy arrays from tests/fixtures or workspace."""
     images = {}
     for filename in repo_png_files:
-        path = os.path.join(workspace_root, filename)
+        path = os.path.join(FIXTURES_DIR, filename)
+        if not os.path.exists(path):
+            path = os.path.join(workspace_root, filename)
         img = cv2.imread(path)
         if img is not None:
             images[filename] = img

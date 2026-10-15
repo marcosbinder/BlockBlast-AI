@@ -110,12 +110,9 @@ flowchart TD
 
 ## 🎬 Visual Demonstration
 
-| Live Autonomous Bot on Mobile Device | Interactive Pygame NEAT Dashboard |
-|:---:|:---:|
-| ![Live Mobile Play Demo](assets/demo_mobile_bot.gif) | ![NEAT Training Dashboard](assets/demo_dashboard.gif) |
-| *Real-time closed-loop play on Motorola Moto G54 5G* | *Multi-core parallel evolution & telemetry dashboard* |
-
-> *Place your gameplay and dashboard screen recordings into the `assets/` directory.*
+<p align="center">
+  <img src="assets/demo.gif" alt="BlockBlast AI Champion Gameplay" width="700" />
+</p>
 
 ---
 

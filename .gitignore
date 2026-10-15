@@ -17,6 +17,26 @@ slot2_crop.png
 live_full.png
 mathr81_control.py
 
+# Whitelist official test screenshots required by test suite
+!after_blue_test.png
+!after_center_test.png
+!after_tap.png
+!after_test.png
+!current_bug_screen.png
+!current_check.png
+!current_live.png
+!current_live_now.png
+!current_misplace.png
+!current_phone.png
+!current_state.png
+!debug_tray.png
+!holding_piece.png
+!holding_zv.png
+!phone_screen.png
+!probe_1160.png
+!probe_778_1244.png
+!probe_target_snap.png
+
 # Checkpoint partial snapshots (keep best_champion.pkl and training_history.csv)
 checkpoints/neat-checkpoint-*
 

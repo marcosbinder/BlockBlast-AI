@@ -47,7 +47,7 @@ BOARD_BOTTOM_Y: float = 1537.0
 
 # Tray cancel hazard boundary & safe release ceiling
 TRAY_CANCEL_ZONE_START_Y: int = 1600
-MAX_SAFE_RELEASE_Y: int = 1850
+MAX_SAFE_RELEASE_Y: int = 1580
 MIN_SAFE_RELEASE_Y: int = 580
 
 # Default ADB connection parameters
@@ -391,7 +391,7 @@ class FastADBSocketClient:
     ) -> bool:
         """
         Dispatch a swipe / drag gesture from (x1, y1) to (x2, y2) with specified duration.
-        
+
         Args:
             x1: Starting X coordinate.
             y1: Starting Y coordinate.
@@ -399,7 +399,7 @@ class FastADBSocketClient:
             y2: Ending Y coordinate.
             duration_ms: Duration of swipe in milliseconds.
             clamp_safe_release: If True, clamps y2 to safe release limit (Y <= 1580).
-        
+
         Returns:
             bool: True if command executed without error.
         """
@@ -426,11 +426,11 @@ class FastADBSocketClient:
     def tap(self, x: Union[int, float], y: Union[int, float]) -> bool:
         """
         Dispatch a single touch tap at (x, y).
-        
+
         Args:
             x: Touch X coordinate.
             y: Touch Y coordinate.
-        
+
         Returns:
             bool: True if command executed without error.
         """

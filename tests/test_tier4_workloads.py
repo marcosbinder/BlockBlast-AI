@@ -8,20 +8,16 @@ import time
 import cv2
 import numpy as np
 import pytest
-from typing import List, Tuple, Dict
 
 from adb_client import (
     FastADBSocketClient,
-    SCREEN_WIDTH,
-    SCREEN_HEIGHT,
     MAX_SAFE_RELEASE_Y,
-    clamp_release_y,
     is_in_tray_cancel_zone,
 )
-from cv_detector import BlockBlastDetector, CANONICAL_SHAPES
+from cv_detector import BlockBlastDetector
 from game import BlockBlast, Piece, BLOCK_SHAPES
 from bot_player import BlockBlastMobileBot
-from tests.conftest import SyntheticFrameBuilder, MockADBServer
+from tests.conftest import SyntheticFrameBuilder
 import train
 
 

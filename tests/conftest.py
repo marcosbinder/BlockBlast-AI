@@ -5,12 +5,10 @@ and image loaders for Block Blast Autonomous Engine E2E Test Suite.
 
 import os
 import sys
-import io
-import time
 import socket
 import threading
 import pickle
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional
 
 import pytest
 import cv2
@@ -24,17 +22,9 @@ if WORKSPACE_DIR not in sys.path:
 
 from adb_client import (
     FastADBSocketClient,
-    SCREEN_WIDTH,
-    SCREEN_HEIGHT,
-    BOARD_LEFT_X,
-    BOARD_RIGHT_X,
-    BOARD_TOP_Y,
-    BOARD_BOTTOM_Y,
-    TRAY_CANCEL_ZONE_START_Y,
-    MAX_SAFE_RELEASE_Y,
 )
-from cv_detector import BlockBlastDetector, CANONICAL_SHAPES
-from game import BlockBlast, Piece, BLOCK_SHAPES, PIECE_NAMES
+from cv_detector import BlockBlastDetector
+from game import BlockBlast, BLOCK_SHAPES
 import train
 
 CHAMPION_PATH = os.path.join(WORKSPACE_DIR, "checkpoints", "best_champion.pkl")

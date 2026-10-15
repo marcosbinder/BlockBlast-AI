@@ -14,27 +14,15 @@ Tests cover:
 
 import os
 import socket
-import struct
-import subprocess
 import threading
-import time
 import unittest
 from unittest.mock import MagicMock, patch
 
 import cv2
 import numpy as np
 
-import adb_client
 from adb_client import (
-    BOARD_BOTTOM_Y,
-    BOARD_LEFT_X,
-    BOARD_RIGHT_X,
-    BOARD_TOP_Y,
-    MAX_SAFE_RELEASE_Y,
     PNG_MAGIC_HEADER,
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH,
-    TRAY_CANCEL_ZONE_START_Y,
     FastADBSocketClient,
     clamp_coordinate_x,
     clamp_coordinate_y,

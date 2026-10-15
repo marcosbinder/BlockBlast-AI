@@ -6,18 +6,10 @@ limits, multi-line clears, piece geometries, and threshold boundaries.
 
 import math
 import numpy as np
-import pytest
-from typing import List, Tuple
 
 from adb_client import (
-    FastADBSocketClient,
     SCREEN_WIDTH,
     SCREEN_HEIGHT,
-    BOARD_LEFT_X,
-    BOARD_RIGHT_X,
-    BOARD_TOP_Y,
-    BOARD_BOTTOM_Y,
-    TRAY_CANCEL_ZONE_START_Y,
     MAX_SAFE_RELEASE_Y,
     clamp_coordinate_x,
     clamp_coordinate_y,
@@ -26,11 +18,10 @@ from adb_client import (
     is_within_bounds,
     is_in_tray_cancel_zone,
 )
-from cv_detector import BlockBlastDetector, CANONICAL_SHAPES
-from game import BlockBlast, Piece, BLOCK_SHAPES
+from cv_detector import BlockBlastDetector
+from game import BlockBlast, Piece
 from bot_player import BlockBlastMobileBot
 from tests.conftest import SyntheticFrameBuilder
-import train
 
 
 # =====================================================================

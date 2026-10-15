@@ -568,7 +568,7 @@ def simulate_batch_sequence(
 ) -> Dict[str, Any]:
     """
     Simulates placing a batch sequence of pieces on an 8x8 board in-memory.
-    
+
     Args:
         board: 8x8 list of lists (0=empty, 1=occupied).
         pieces: list of Piece objects (or None for empty slots).
@@ -576,7 +576,7 @@ def simulate_batch_sequence(
         initial_combo: starting combo streak.
         initial_turns_without_clear: starting turns without clearing lines.
         combo_tolerance: tolerance turns before combo resets.
-        
+
     Returns:
         Dict with:
             - 'valid': bool (True if all moves were legal)
@@ -600,7 +600,7 @@ def simulate_batch_sequence(
     max_combo = initial_combo
     turns_without_clear = initial_turns_without_clear
     step_results = []
-    
+
     for step_idx, (p_idx, target_r, target_c) in enumerate(moves):
         if not (0 <= p_idx < len(curr_pieces)) or curr_pieces[p_idx] is None:
             return {
@@ -616,9 +616,9 @@ def simulate_batch_sequence(
                 "failed_step": step_idx,
                 "step_results": step_results,
             }
-        
+
         piece = curr_pieces[p_idx]
-        
+
         # Check placement validity
         can_place = True
         for dr, dc in piece.blocks:
@@ -627,7 +627,7 @@ def simulate_batch_sequence(
             if r < 0 or r >= 8 or c < 0 or c >= 8 or curr_board[r][c] != 0:
                 can_place = False
                 break
-        
+
         if not can_place:
             return {
                 "valid": False,
@@ -642,7 +642,7 @@ def simulate_batch_sequence(
                 "failed_step": step_idx,
                 "step_results": step_results,
             }
-        
+
         # Contacts calculation
         contacts = 0
         for dr, dc in piece.blocks:
@@ -654,31 +654,31 @@ def simulate_batch_sequence(
             if r < 7 and curr_board[r + 1][c] != 0: contacts += 1
             if c > 0 and curr_board[r][c - 1] != 0: contacts += 1
             if c < 7 and curr_board[r][c + 1] != 0: contacts += 1
-        
+
         # Place blocks
         for dr, dc in piece.blocks:
             curr_board[target_r + dr][target_c + dc] = 1
-        
+
         curr_pieces[p_idx] = None
         step_pts = piece.size
-        
+
         # Clear lines
         rows_to_clear = [r for r in range(8) if all(curr_board[r][c] != 0 for c in range(8))]
         cols_to_clear = [c for c in range(8) if all(curr_board[row_idx][c] != 0 for row_idx in range(8))]
         cleared_lines = len(rows_to_clear) + len(cols_to_clear)
-        
+
         for r in rows_to_clear:
             for c in range(8):
                 curr_board[r][c] = 0
         for c in cols_to_clear:
             for r in range(8):
                 curr_board[r][c] = 0
-        
+
         step_fit = 1.0
         max_contacts = max(1, piece.size * 4)
         fit_ratio = min(1.0, contacts / max_contacts)
         step_fit += fit_ratio * 3.0
-        
+
         if cleared_lines > 0:
             combo_streak += 1
             turns_without_clear = 0
@@ -688,11 +688,11 @@ def simulate_batch_sequence(
             step_pts += line_base_score + combo_score
             if combo_streak > max_combo:
                 max_combo = combo_streak
-            
+
             step_fit += (cleared_lines * 50.0 * combo_streak + (combo_streak ** 2) * 20.0)
             if cleared_lines >= 2:
                 step_fit += (cleared_lines ** 2) * 50.0
-            
+
             if all(curr_board[r][c] == 0 for r in range(8) for c in range(8)):
                 step_pts += 300
                 step_fit += 3000.0
@@ -700,7 +700,7 @@ def simulate_batch_sequence(
             turns_without_clear += 1
             if turns_without_clear >= combo_tolerance:
                 combo_streak = 0
-        
+
         score += step_pts
         fitness += step_fit
         step_results.append({
@@ -713,7 +713,7 @@ def simulate_batch_sequence(
             "lines_cleared": cleared_lines,
             "combo_streak": combo_streak,
         })
-    
+
     return {
         "valid": True,
         "final_board": curr_board,

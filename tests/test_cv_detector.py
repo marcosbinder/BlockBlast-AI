@@ -12,14 +12,13 @@ Tests BlockBlastDetector across:
 """
 
 import os
-import glob
 import time
 import cv2
 import numpy as np
 import pytest
-from typing import List, Tuple
+from typing import List
 
-from cv_detector import BlockBlastDetector, CANONICAL_SHAPES
+from cv_detector import BlockBlastDetector
 from game import BLOCK_SHAPES
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

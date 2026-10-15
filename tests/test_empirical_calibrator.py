@@ -16,22 +16,16 @@ Covers:
 import json
 import os
 import tempfile
-from typing import Dict, List, Tuple
 
-import cv2
 import numpy as np
 import pytest
 
 from adb_client import (
-    BOARD_BOTTOM_Y,
     BOARD_LEFT_X,
-    BOARD_RIGHT_X,
     BOARD_TOP_Y,
     MAX_SAFE_RELEASE_Y,
-    MIN_SAFE_RELEASE_Y,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
-    TRAY_CANCEL_ZONE_START_Y,
     FastADBSocketClient,
     is_in_tray_cancel_zone,
 )
@@ -39,11 +33,7 @@ from cv_detector import BlockBlastDetector
 from empirical_calibrator import (
     CELL_HEIGHT,
     CELL_WIDTH,
-    DEFAULT_CALIBRATION_PROFILE_PATH,
     DEFAULT_FINGER_LIFT_OFFSET,
-    GHOST_MAX_DELTA_E,
-    GHOST_MIN_DELTA_E,
-    SHAPE_FAMILY_MAP,
     AutonomousCalibrator,
     CalibrationProfile,
     clamp_safe_finger_release,
@@ -52,8 +42,8 @@ from empirical_calibrator import (
     load_calibration_profiles,
     save_calibration_profiles,
 )
-from game import BLOCK_SHAPES, Piece
-from tests.conftest import MockADBServer, SyntheticFrameBuilder
+from game import BLOCK_SHAPES
+from tests.conftest import SyntheticFrameBuilder
 
 
 # =====================================================================

@@ -8,7 +8,6 @@ Inclui:
 - Totalmente leve e compatível com 4GB RAM e telas redimensionáveis.
 """
 
-import time
 import pygame
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -318,7 +317,7 @@ class TrainingDashboard:
 
         self.draw_interactive_button(self.btn_quit_rect, "💾 SALVAR E SAIR", COLOR_RED, mouse_pos)
 
-    def update(self, generation: int, best_score: int, last_score: int, 
+    def update(self, generation: int, best_score: int, last_score: int,
                history: List[Dict[str, Any]], is_paused: bool, turbo: bool,
                last_duration: float, avg_duration: float = 0.0,
                total_elapsed: float = 0.0, progress: str = ""):

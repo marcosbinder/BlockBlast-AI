@@ -11,61 +11,38 @@ Comprehensive empirical challenge suite verifying:
 
 from __future__ import annotations
 
-import itertools
 import math
-import os
 import random
-import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-import cv2
 import numpy as np
 import pytest
 
 from adb_client import (
-    BOARD_BOTTOM_Y,
-    BOARD_LEFT_X,
-    BOARD_RIGHT_X,
-    BOARD_TOP_Y,
-    DEFAULT_DEVICE_SERIAL,
     MAX_SAFE_RELEASE_Y,
-    MIN_SAFE_RELEASE_Y,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     TRAY_CANCEL_ZONE_START_Y,
     FastADBSocketClient,
     clamp_coordinate_x,
     clamp_coordinate_y,
-    clamp_coordinates,
     clamp_release_y,
     is_in_tray_cancel_zone,
-    is_within_bounds,
 )
 from bot_player import (
     BlockBlastMobileBot,
     BotState,
-    load_champion_network,
     plan_batch_moves,
 )
-from cv_detector import (
-    CANONICAL_SHAPES,
-    BlockBlastDetector,
-)
 from empirical_calibrator import (
-    CELL_HEIGHT,
-    CELL_WIDTH,
     CalibrationProfile,
-    clamp_safe_finger_release,
-    create_default_calibration_profiles,
-    get_shape_family,
 )
 from game import (
     BLOCK_SHAPES,
     PIECE_NAMES,
     BlockBlast,
     Piece,
-    simulate_batch_sequence,
 )
 from tests.conftest import SyntheticFrameBuilder
 

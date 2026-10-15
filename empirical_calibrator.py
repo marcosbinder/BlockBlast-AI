@@ -14,10 +14,9 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -34,9 +33,6 @@ from adb_client import (
     TRAY_CANCEL_ZONE_START_Y,
     FastADBSocketClient,
     clamp_coordinates,
-    clamp_release_y,
-    is_in_tray_cancel_zone,
-    is_within_bounds,
 )
 from cv_detector import BlockBlastDetector
 from game import BLOCK_SHAPES, Piece
@@ -343,7 +339,7 @@ class CalibrationProfile:
         """
         Calculates the finger release coordinate (X, Y) required to snap a piece
         at grid position (target_row, target_col).
-        
+
         Applies:
         1. Exact geometric center mapping on the 8x8 board.
         2. Calibrated vertical lift offset L_y.

@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Package Release Archives
+        run: |
+          sudo apt-get update && sudo apt-get install -y zip tar
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          ARCHIVE_BASE="blockblast-ai-${TAG_NAME}"
+          mkdir -p dist/${ARCHIVE_BASE}
+
+          # Copy project files
+          cp -r *.py config-feedforward calibration_profiles.json pyproject.toml requirements.txt README.md README.pt-BR.md LICENSE CHANGELOG.md dist/${ARCHIVE_BASE}/
+          cp -r checkpoints dist/${ARCHIVE_BASE}/
+          cp -r tests dist/${ARCHIVE_BASE}/
+
+          cd dist
+          tar -czvf "${ARCHIVE_BASE}.tar.gz" "${ARCHIVE_BASE}"
+          zip -r "${ARCHIVE_BASE}.zip" "${ARCHIVE_BASE}"
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "BlockBlast-AI ${{ github.ref_name }}"
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+          files: |
+            dist/*.tar.gz
+            dist/*.zip

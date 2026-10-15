@@ -12,8 +12,9 @@ cv_detector.py - Ultra-Fast, SIMD Multi-Theme Computer Vision Detector for Block
 import time
 import cv2
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 from typing import List, Tuple, Optional, Dict, Any
-from game import BLOCK_SHAPES, Piece
+from game import BLOCK_SHAPES
 
 # =====================================================================
 # CANONICAL SHAPE HASH TABLE FOR 42 STANDARD PIECES
@@ -88,6 +89,9 @@ class BlockBlastDetector:
         self.k_open = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
         self.k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (11, 11))
 
+        # Synthesize normalized digit templates for sub-millisecond score OCR
+        self.digit_templates = self._init_digit_templates()
+
     def get_cell_screen_coords(self, row: int, col: int) -> Tuple[int, int]:
         """Returns exact center (X, Y) pixel coordinates of board cell (row, col)."""
         x = int(self.board_left + (col + 0.5) * self.cell_w)
@@ -96,29 +100,47 @@ class BlockBlastDetector:
 
     def detect_board_state(self, img_bgr: np.ndarray) -> List[List[int]]:
         """
-        Extracts 8x8 binary occupancy matrix.
-        Adaptive background calibration uses luminance sorting to ignore corner pieces.
+        Extracts 8x8 binary occupancy matrix across 0% to 100% full boards.
+        Uses 4-corner bezel background reference + adaptive cell variance for invariant classification.
         """
         board_crop = img_bgr[self.board_top:self.board_bottom, self.board_left:self.board_right]
         patches = board_crop[self.rel_board_y, self.rel_board_x].reshape(64, 81, 3)
-        
+
         cell_means = patches.mean(axis=1)  # (64, 3)
         cell_stds = patches.std(axis=1).mean(axis=1)  # (64,)
 
-        # Extrai o brilho somando os canais RGB
+        # Sample 4-corner invariant bezel background reference
+        c_tl = img_bgr[self.board_top + 10:self.board_top + 25, self.board_left + 10:self.board_left + 25]
+        c_tr = img_bgr[self.board_top + 10:self.board_top + 25, self.board_right - 25:self.board_right - 10]
+        c_bl = img_bgr[self.board_bottom - 25:self.board_bottom - 10, self.board_left + 10:self.board_left + 25]
+        c_br = img_bgr[self.board_bottom - 25:self.board_bottom - 10, self.board_right - 25:self.board_right - 10]
+        corner_bg = np.median(np.vstack([
+            c_tl.reshape(-1, 3),
+            c_tr.reshape(-1, 3),
+            c_bl.reshape(-1, 3),
+            c_br.reshape(-1, 3),
+        ]), axis=0)
+
+        # Check internal cell luminance
         brightness = np.sum(cell_means, axis=1)
-        
-        # Isola as 8 células mais escuras do tabuleiro inteiro.
         darkest_indices = np.argsort(brightness)[:8]
-        recess_bg = np.median(cell_means[darkest_indices], axis=0)
+        recess_darkest = np.median(cell_means[darkest_indices], axis=0)
+
+        # If darkest cells match the invariant bezel corners, use internal darkest cells;
+        # if board is crowded/100% full, darkest cells diverge from corner bezel -> use corner_bg!
+        dist_to_corner = float(np.linalg.norm(recess_darkest - corner_bg))
+        if dist_to_corner < 22.0:
+            recess_bg = recess_darkest
+        else:
+            recess_bg = corner_bg
 
         diff_from_recess = np.linalg.norm(cell_means - recess_bg, axis=1)
 
-        # Célula está ocupada se a cor divergir do fundo escuro OU tiver muita variação
+        # Cell is occupied if color diverges from dark background OR has high texture variance
         occupied = (diff_from_recess > 24.0) | (cell_stds > 10.0)
 
         return occupied.reshape(8, 8).astype(int).tolist()
-        
+
     def detect_tray_pieces(self, img_bgr: np.ndarray) -> List[Tuple[Optional[str], Optional[Tuple[int, int]]]]:
         """
         Detects pieces in the 3 tray slots with touch grab centers in <20ms.
@@ -126,12 +148,12 @@ class BlockBlastDetector:
         """
         tray_crop = img_bgr[self.tray_top:self.tray_bottom, self.tray_left:self.tray_right]
 
-        # Dynamic 4-margin background calibration (15px border)
+        # Dynamic 4-margin background calibration with fast SIMD subsampling (15px border)
         margins = np.vstack([
-            tray_crop[0:15, :].reshape(-1, 3),
-            tray_crop[-15:, :].reshape(-1, 3),
-            tray_crop[:, 0:15].reshape(-1, 3),
-            tray_crop[:, -15:].reshape(-1, 3)
+            tray_crop[0:15:2, ::4].reshape(-1, 3),
+            tray_crop[-15::2, ::4].reshape(-1, 3),
+            tray_crop[::4, 0:15:2].reshape(-1, 3),
+            tray_crop[::4, -15::2].reshape(-1, 3)
         ])
         bg_color = np.median(margins, axis=0).astype(np.uint8)
 
@@ -208,8 +230,12 @@ class BlockBlastDetector:
                 row.append(1 if fill_ratio > 0.35 else 0)
             grid.append(tuple(row))
 
-        # Discard empty noise bounding boxes
+        # Discard empty noise bounding boxes or sub-scale specks
         if sum(sum(row) for row in grid) == 0:
+            return None
+
+        # Guard against partial noise/sparkles being classified as 1x1 dot
+        if grid_h == 1 and grid_w == 1 and (w < 35 or h < 35):
             return None
 
         matrix_key = tuple(grid)
@@ -351,12 +377,77 @@ class BlockBlastDetector:
 
         return is_game_over, score
 
-    def _extract_digits_from_crop(self, crop_bgr: np.ndarray) -> Optional[int]:
-        """Simple numeric OCR extractor for score text."""
-        gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-        _, binary = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        digit_cnts = [c for c in contours if 300 < cv2.contourArea(c) < 15000]
-        if not digit_cnts:
+    def _init_digit_templates(self) -> Dict[int, np.ndarray]:
+        """Synthesizes canonical 18x24 binary masks for digits 0-9 for instant template matching."""
+        templates = {}
+        for digit in range(10):
+            img = Image.new('L', (70, 90), color=0)
+            draw = ImageDraw.Draw(img)
+            try:
+                font = ImageFont.truetype('arialbd.ttf', 70)
+            except Exception:
+                font = ImageFont.load_default()
+            draw.text((10, 0), str(digit), fill=255, font=font)
+            arr = np.array(img)
+            cnts, _ = cv2.findContours(arr, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if cnts:
+                x, y, w, h = cv2.boundingRect(max(cnts, key=cv2.contourArea))
+                crop = arr[y:y+h, x:x+w]
+                templates[digit] = cv2.resize(crop, (18, 24), interpolation=cv2.INTER_AREA)
+        return templates
+
+    def detect_live_score(self, img_bgr: np.ndarray) -> Optional[int]:
+        """
+        Extracts current score from the live gameplay banner above the board.
+        Native region: Y: [320, 475], X: [250, 830] for 1080x2400 displays.
+        """
+        h, w, _ = img_bgr.shape
+        if h < 2000 or w < 1000:
             return None
-        return len(digit_cnts) * 100
+
+        score_crop = img_bgr[320:475, 250:830]
+        return self._extract_digits_from_crop(score_crop)
+
+    def _extract_digits_from_crop(self, crop_bgr: np.ndarray) -> Optional[int]:
+        """
+        Sub-3ms deterministic numeric OCR using luminance thresholding and normalized template matching.
+        """
+        if not hasattr(self, "digit_templates") or not self.digit_templates:
+            self.digit_templates = self._init_digit_templates()
+
+        gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
+        cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        digits = []
+        for c in cnts:
+            area = cv2.contourArea(c)
+            x, y, w, h = cv2.boundingRect(c)
+            # Filter noise, borders, or non-digit artifacts
+            if area > 80 and h > 45 and w > 12:
+                digits.append((x, y, w, h))
+
+        if not digits:
+            return None
+
+        # Sort strictly left to right
+        digits.sort(key=lambda d: d[0])
+
+        recognized = []
+        for x, y, w, h in digits:
+            d_crop = thresh[y:y+h, x:x+w]
+            d_norm = cv2.resize(d_crop, (18, 24), interpolation=cv2.INTER_AREA)
+            best_d = 0
+            best_score = -float('inf')
+            for d, tmpl in self.digit_templates.items():
+                res = cv2.matchTemplate(d_norm, tmpl, cv2.TM_CCOEFF_NORMED)
+                score = res[0][0]
+                if score > best_score:
+                    best_score = score
+                    best_d = d
+            recognized.append(str(best_d))
+
+        try:
+            return int(''.join(recognized)) if recognized else None
+        except ValueError:
+            return None

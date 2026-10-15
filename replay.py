@@ -3,14 +3,14 @@ replay.py - Visualizador do Campeão com Avaliação Inteligente de Jogadas e Va
 """
 
 import os
-import sys
 import pickle
 import random
 import neat
 import pygame
-from typing import Optional, Tuple
+from typing import Optional
 
-from game import BlockBlast, Piece
+from game import BlockBlast
+from planner import choose_best_move
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config-feedforward")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "checkpoints", "best_champion.pkl")
@@ -107,22 +107,6 @@ class MatchViewer:
         pygame.display.flip()
 
 
-def choose_best_move(game: BlockBlast, net: neat.nn.FeedForwardNetwork) -> Optional[Tuple[int, int, int]]:
-    valid_moves = game.get_valid_moves()
-    if not valid_moves:
-        return None
-
-    best_val = -float('inf')
-    best_move = valid_moves[0]
-
-    for p_idx, r, c in valid_moves:
-        features = game.simulate_move_features(p_idx, r, c)
-        val = net.activate(features)[0]
-        if val > best_val:
-            best_val = val
-            best_move = (p_idx, r, c)
-
-    return best_move
 
 
 def main():

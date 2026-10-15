@@ -17,7 +17,7 @@ from typing import List, Tuple, Dict, Any, Optional
 
 from game import BlockBlast
 from visualizer import TrainingDashboard
-from bot_player import plan_batch_moves
+from planner import plan_batch_moves, choose_best_move as _planner_choose_best_move
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config-feedforward")
 CHECKPOINT_DIR = os.path.join(os.path.dirname(__file__), "checkpoints")
@@ -176,19 +176,8 @@ def handle_events():
 # =============================================
 
 def _choose_best_move(game: BlockBlast, net) -> Optional[Tuple[int, int, int]]:
-    """Versão standalone para workers."""
-    valid_moves = game.get_valid_moves()
-    if not valid_moves:
-        return None
-    best_val = -float('inf')
-    best_move = valid_moves[0]
-    for p_idx, r, c in valid_moves:
-        features = game.simulate_move_features(p_idx, r, c)
-        val = net.activate(features)[0]
-        if val > best_val:
-            best_val = val
-            best_move = (p_idx, r, c)
-    return best_move
+    """Versão standalone canônica para workers e replay."""
+    return _planner_choose_best_move(game, net)
 
 
 def _play_one_game(net, seed: int) -> Tuple[float, int]:
@@ -358,8 +347,21 @@ def main():
         neat.DefaultReproduction,
         neat.DefaultSpeciesSet,
         neat.DefaultStagnation,
-        CONFIG_PATH
+        CONFIG_PATH,
     )
+
+    if "--headless" in sys.argv or os.environ.get("HEADLESS") == "1":
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
+        os.environ["SDL_AUDIODRIVER"] = "dummy"
+
+    max_gens = None
+    if "--generations" in sys.argv:
+        g_idx = sys.argv.index("--generations")
+        if g_idx + 1 < len(sys.argv):
+            try:
+                max_gens = int(sys.argv[g_idx + 1])
+            except ValueError:
+                pass
 
     latest_ckpt = get_latest_checkpoint()
     population = None
@@ -422,6 +424,7 @@ def main():
     print("  - [F / F11]: Alternar Tela Cheia")
     print("  - [ESC]: Salvar e Sair\n")
 
+    start_gen = population.generation
     try:
         while True:
             handle_events()
@@ -483,6 +486,10 @@ def main():
                 dashboard.clock.tick(20)
             else:
                 dashboard.clock.tick(120)
+
+            if max_gens is not None and (current_generation - start_gen) >= max_gens:
+                print(f"[CONCLUÍDO] Treinamento de {max_gens} geração(ões) finalizado com sucesso.")
+                break
 
     except KeyboardInterrupt:
         print(f"\n[SALVO] Treino interrompido na Geração {current_generation}.")

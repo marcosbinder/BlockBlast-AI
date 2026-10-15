@@ -15,15 +15,13 @@ Features:
 from __future__ import annotations
 
 import enum
-import itertools
 import logging
 import os
 import pickle
 import sys
 import time
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import cv2
 import neat
 import numpy as np
 
@@ -31,16 +29,15 @@ from adb_client import (
     DEFAULT_ADB_HOST,
     DEFAULT_ADB_PORT,
     DEFAULT_DEVICE_SERIAL,
-    MAX_SAFE_RELEASE_Y,
     FastADBSocketClient,
     clamp_coordinate_x,
     clamp_coordinate_y,
     clamp_release_y,
     find_adb_executable,
-    is_in_tray_cancel_zone,
 )
 from cv_detector import BlockBlastDetector
-from game import BLOCK_SHAPES, BlockBlast, Piece, simulate_batch_sequence
+from game import BLOCK_SHAPES, Piece
+from planner import plan_batch_moves
 
 logger = logging.getLogger("bot_player")
 if not logger.handlers:
@@ -110,212 +107,6 @@ def load_champion_network(
     except Exception as e:
         logger.error(f"Failed to load champion network ({e})")
         return None
-
-
-def _fast_simulate_placement(
-    board: List[List[int]],
-    piece: Piece,
-    r: int,
-    c: int,
-) -> Optional[Tuple[List[List[int]], int, int, int]]:
-    """
-    High-speed in-memory placement simulation.
-    Returns (new_board, points, cleared_lines, contacts) or None if collision/OOB.
-    """
-    # 1. Bounds & collision check
-    for dr, dc in piece.blocks:
-        pr = r + dr
-        pc = c + dc
-        if pr < 0 or pr >= 8 or pc < 0 or pc >= 8 or board[pr][pc] != 0:
-            return None
-
-    # 2. Clone board and place blocks + calculate contacts
-    new_board = [row[:] for row in board]
-    contacts = 0
-    for dr, dc in piece.blocks:
-        pr = r + dr
-        pc = c + dc
-        new_board[pr][pc] = 1
-        if pr == 0 or pr == 7: contacts += 1
-        if pc == 0 or pc == 7: contacts += 1
-        if pr > 0 and board[pr - 1][pc] != 0: contacts += 1
-        if pr < 7 and board[pr + 1][pc] != 0: contacts += 1
-        if pc > 0 and board[pr][pc - 1] != 0: contacts += 1
-        if pc < 7 and board[pr][pc + 1] != 0: contacts += 1
-
-    # 3. Fast line clearing (apenas nas linhas e colunas que a peça afetou)
-    r_check = range(r, min(8, r + piece.height))
-    c_check = range(c, min(8, c + piece.width))
-    rows_to_clear = [ri for ri in r_check if sum(new_board[ri]) == 8]
-    cols_to_clear = [ci for ci in c_check if sum(new_board[ri][ci] for ri in range(8)) == 8]
-    cleared = len(rows_to_clear) + len(cols_to_clear)
-
-    for ri in rows_to_clear:
-        new_board[ri] = [0] * 8
-    for ci in cols_to_clear:
-        for ri in range(8):
-            new_board[ri][ci] = 0
-
-    points = piece.size
-    if cleared > 0:
-        points += 10 * (cleared * (cleared + 1)) // 2
-        if all(new_board[row_idx][col_idx] == 0 for row_idx in range(8) for col_idx in range(8)):
-            points += 300
-
-    return new_board, points, cleared, contacts
-
-
-def plan_batch_moves(
-    board_state: Union[np.ndarray, List[List[int]]],
-    tray_pieces: Union[
-        List[Dict[str, Any]],
-        List[Optional[Piece]],
-        List[Tuple[Optional[str], Optional[Tuple[int, int]]]],
-    ],
-    neat_net: Optional[neat.nn.FeedForwardNetwork] = None,
-    beam_width: int = 8,
-) -> List[Tuple[int, int, int]]:
-    """
-    Evaluates all sequence permutations (up to 3! = 6 paths) in-memory across
-    all valid board placement positions, scoring candidate paths using the NEAT
-    champion network to pick the globally optimal multi-piece combo sequence.
-    """
-    # 1. Normalize board to 8x8 list of lists
-    if isinstance(board_state, np.ndarray):
-        board = board_state.astype(int).tolist()
-    else:
-        board = [list(row) for row in board_state]
-
-    # 2. Normalize tray pieces to dict mapping slot_idx -> Piece
-    slot_pieces: Dict[int, Piece] = {}
-    for slot_idx, item in enumerate(tray_pieces):
-        if item is None:
-            continue
-        if isinstance(item, dict):
-            slot = item.get("slot", slot_idx)
-            name = item.get("name")
-            if name and name in BLOCK_SHAPES:
-                slot_pieces[slot] = Piece(name)
-        elif isinstance(item, (tuple, list)):
-            p_name = item[0]
-            if p_name is not None and isinstance(p_name, str) and p_name in BLOCK_SHAPES:
-                slot_pieces[slot_idx] = Piece(p_name)
-        elif isinstance(item, Piece):
-            slot_pieces[slot_idx] = item
-        elif isinstance(item, str) and item in BLOCK_SHAPES:
-            slot_pieces[slot_idx] = Piece(item)
-
-    active_slots = list(slot_pieces.keys())
-    if not active_slots:
-        return []
-
-    # If only 1 piece, evaluate all valid placements
-    if len(active_slots) == 1:
-        s0 = active_slots[0]
-        piece0 = slot_pieces[s0]
-        sim0 = BlockBlast()
-        sim0.board = [row[:] for row in board]
-        sim0.tray = [None, None, None]
-        sim0.tray[s0] = piece0
-        valid_moves = sim0.get_valid_moves_for_piece(s0)
-        if not valid_moves:
-            return []
-        best_val = -float("inf")
-        best_m = valid_moves[0]
-        for m in valid_moves:
-            features = sim0.simulate_move_features(m[0], m[1], m[2])
-            val = neat_net.activate(features)[0] if neat_net is not None else 0.0
-            sim_step = sim0.clone()
-            _, pts, step_fit = sim_step.step(m[0], m[1], m[2])
-            total_val = val + step_fit + pts
-            if total_val > best_val:
-                best_val = total_val
-                best_m = m
-        return [best_m]
-
-    # Generate all sequence permutations (e.g. 2 for 2 pieces, 6 for 3 pieces)
-    permutations = list(itertools.permutations(active_slots))
-    candidate_sequences: List[Tuple[float, List[Tuple[int, int, int]], List[List[int]]]] = []
-
-    for perm in permutations:
-        k = len(perm)
-        # Current beams: list of (cumulative_score, board_state, path)
-        current_beams: List[Tuple[float, List[List[int]], List[Tuple[int, int, int]]]] = [
-            (0.0, [row[:] for row in board], [])
-        ]
-
-        for depth, slot_idx in enumerate(perm):
-            piece = slot_pieces[slot_idx]
-            next_beams = []
-            max_r = 9 - piece.height
-            max_c = 9 - piece.width
-
-            for acc_score, b_state, path in current_beams:
-                candidates = []
-                for r in range(max_r):
-                    for c in range(max_c):
-                        sim_res = _fast_simulate_placement(b_state, piece, r, c)
-                        if sim_res is None:
-                            continue
-
-                        new_b, pts, cleared, contacts = sim_res
-                        max_contacts = max(1, piece.size * 4)
-                        contact_fit = (contacts / max_contacts) * 3.0
-                        step_score = pts + cleared * 50.0 + contact_fit
-
-                        candidates.append((step_score, new_b, path + [(slot_idx, r, c)]))
-
-                if candidates:
-                    candidates.sort(key=lambda x: x[0], reverse=True)
-                    for c_val, c_board, c_path in candidates[:beam_width]:
-                        next_beams.append((acc_score + c_val, c_board, c_path))
-                else:
-                    # Partial path dead-end
-                    deadlock_penalty = -500.0 * (k - depth)
-                    next_beams.append((acc_score + deadlock_penalty, b_state, path))
-
-            if next_beams:
-                next_beams.sort(key=lambda x: x[0], reverse=True)
-                current_beams = next_beams[:beam_width]
-            else:
-                break
-
-        if current_beams:
-            top_score, final_b, top_path = current_beams[0]
-            if len(top_path) == k:
-                top_score += 500.0  # Full sequence completion bonus
-            candidate_sequences.append((top_score, top_path, final_b))
-
-    if not candidate_sequences:
-        return []
-
-    # Final scoring: evaluate top candidate sequences with NEAT champion network if available
-    best_path: List[Tuple[int, int, int]] = []
-    best_final_score = -float("inf")
-
-    # Evaluate the top paths
-    candidate_sequences.sort(key=lambda x: x[0], reverse=True)
-    top_eval_pool = candidate_sequences[:6]
-
-    sim_eval = BlockBlast()
-    for base_score, path, final_board in top_eval_pool:
-        if not path:
-            continue
-        final_score = base_score
-        if neat_net is not None and len(path) == len(active_slots):
-            # Extract features on final resulting board
-            sim_eval.board = [row[:] for row in final_board]
-            sim_eval.tray = [None, None, None]
-            # Simulate features for dummy slot to get final board evaluation
-            features = sim_eval.simulate_move_features(0, 0, 0)
-            net_val = neat_net.activate(features)[0]
-            final_score += net_val * 20.0
-
-        if final_score > best_final_score:
-            best_final_score = final_score
-            best_path = path
-
-    return best_path
 
 
 class BlockBlastMobileBot:
@@ -401,7 +192,7 @@ class BlockBlastMobileBot:
         """
         if duration_ms is None:
             dist = np.hypot(end_x - start_x, end_y - start_y)
-            duration_ms = max(600, int(dist * 0.75))
+            duration_ms = max(260, min(320, int(dist * 0.35)))
 
         return self.adb_client.swipe(
             x1=start_x,
@@ -434,7 +225,7 @@ class BlockBlastMobileBot:
         """
         Plans batch moves and computes exact screen touch gesture coordinates
         with safe release clamping Y <= 1580.
-        
+
         Returns:
             List of (slot_idx, row, col, (start_x, start_y), (end_x, end_y))
         """

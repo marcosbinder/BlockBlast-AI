@@ -11,33 +11,26 @@ Covers:
 - End-to-end mock live play sessions.
 """
 
-import os
-import time
 import cv2
 import numpy as np
 import pytest
-from typing import List, Tuple, Dict, Optional, Any
 
 from adb_client import (
     FastADBSocketClient,
     SCREEN_WIDTH,
-    SCREEN_HEIGHT,
     MAX_SAFE_RELEASE_Y,
-    TRAY_CANCEL_ZONE_START_Y,
-    clamp_release_y,
     is_in_tray_cancel_zone,
 )
 from cv_detector import BlockBlastDetector, CANONICAL_SHAPES
-from game import BlockBlast, Piece, BLOCK_SHAPES, PIECE_NAMES, simulate_batch_sequence
+from game import BlockBlast, Piece, BLOCK_SHAPES, simulate_batch_sequence
 from bot_player import (
     BlockBlastMobileBot,
     BotState,
     load_champion_network,
     plan_batch_moves,
-    CHAMPION_PATH,
     CONFIG_PATH,
 )
-from tests.conftest import SyntheticFrameBuilder, MockADBServer
+from tests.conftest import SyntheticFrameBuilder
 
 
 # =====================================================================
@@ -170,7 +163,7 @@ class TestBotPlayer_BatchPermutationPlanning:
         custom_name = "dyn_4x4_diagonal_custom"
         custom_blocks = [(0, 0), (1, 1), (2, 2), (3, 3)]
         custom_key = ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1))
-        
+
         try:
             BLOCK_SHAPES[custom_name] = custom_blocks
             CANONICAL_SHAPES[custom_key] = custom_name
